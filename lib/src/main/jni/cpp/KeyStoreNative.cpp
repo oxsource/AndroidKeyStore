@@ -50,7 +50,7 @@ Java_com_pizzk_keystore_KeyStore_init(JNIEnv *env, jobject thiz,
     if (ks == nullptr) { ks = new KeyStore(); }
     const char *paths = env->GetStringUTFChars(path, nullptr);
     const char *modes = env->GetStringUTFChars(mode, nullptr);
-    const char *secret = strcmp(modes, "release") ? "gZ5ulegvyBHdTnUq" : "devops";
+    const char *secret = strcmp(modes, "release") ? "devops1" : "devops";
     int result = ks->init(paths, secret);
     env->ReleaseStringUTFChars(path, paths);
     env->ReleaseStringUTFChars(mode, modes);
