@@ -1,9 +1,7 @@
 package com.pizzk.keystore
 
 object KeyStore {
-    external fun init(path: String)
-
-    external fun salts(): String
+    external fun init(path: String?, mode: String?, signature: String?): Boolean
 
     external fun encryptAES(key: String?, value: String?, mode: String?): String
 
@@ -15,7 +13,9 @@ object KeyStore {
 
     external fun md5(value: String?): String
 
-//    init {
-//        System.loadLibrary("roselle")
-//    }
+    external fun release()
+
+    init {
+        System.loadLibrary("keystore")
+    }
 }

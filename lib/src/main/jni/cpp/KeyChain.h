@@ -11,7 +11,7 @@ public:
 
     ~KeyChain();
 
-    virtual void assign(const char *key, const char *value);
+    virtual void assign(const char *key, const char *val);
 };
 
 #endif

@@ -124,7 +124,10 @@ KeyStore::~KeyStore() {
 }
 
 int KeyStore::init(const char *path, const char *secrets) {
+    if (path == nullptr || secrets == nullptr) return -100;
     size_t secret_len = strlen(secrets);
+    if (secret_len <= 0) return -101;
+    if (this->secret != nullptr) { free(secret); }
     this->secret = (char *) malloc(secret_len);
     memcpy(this->secret, secrets, secret_len);
     FILE *fp;
@@ -132,6 +135,9 @@ int KeyStore::init(const char *path, const char *secrets) {
         std::cout << "Error opening config file" << path << std::endl;
         return -1;
     }
+    if (this->chains != nullptr) { free(this->chains); }
+    if (this->prvKey != nullptr) { free(this->prvKey); }
+    if (this->pubKey != nullptr) { free(this->pubKey); }
     char *chs = nullptr;
     size_t len = 0;
     const char *delimiters = "::";
@@ -170,7 +176,7 @@ int KeyStore::init(const char *path, const char *secrets) {
         std::cout << "init KeyStore config failed." << std::endl;
         return -3;
     }
-    return 0;
+    return 1;
 }
 
 const char *KeyStore::key(const char *name) {
@@ -185,14 +191,14 @@ const char *KeyStore::key(const char *name) {
 //栅栏数为2(12345678 -> 13572468)
 char *KeyStore::fence(const char *name, const char *value) {
     const char *ins = this->key(name);
-    if (ins == nullptr || value == nullptr) { return nullptr; }
-    size_t ins_len = strlen(ins);
-    size_t val_len = strlen(value);
+    size_t ins_len = ins == nullptr ? 0 : strlen(ins);
+    size_t val_len = value == nullptr ? 0 : strlen(value);
+    if (ins_len <= 0 || val_len <= 0) return nullptr;
     size_t len = ins_len + val_len;
     char *keys = (char *) malloc(len + 1);
     memset(keys, 0, len + 1);
     if (ins_len != val_len) {
-        memcpy(keys, value, val_len);
+        memcpy(keys, value, val_len + 0);
         return keys;
     }
     for (int i = 0; i < len; ++i) {
@@ -211,7 +217,8 @@ unsigned char *KeyStore::encryptAES(const char *key, const unsigned char *in, in
     // https://www.openssl.org/docs/man3.0/man3/EVP_EncryptInit.html
     if (key == nullptr || in == nullptr || len <= 0) return nullptr;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, (const unsigned char *) key, this->iv)) {
+    if (!EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, (const unsigned char *) key,
+                            this->iv)) {
         EVP_CIPHER_CTX_free(ctx);
         std::cout << "AES EVP_EncryptInit_ex failed." << std::endl;
         return nullptr;
@@ -241,7 +248,8 @@ unsigned char *KeyStore::encryptAES(const char *key, const unsigned char *in, in
 unsigned char *KeyStore::decodeAES(const char *key, const unsigned char *in, int len) {
     if (key == nullptr || in == nullptr || len <= 0) return nullptr;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, (const unsigned char *) key, this->iv)) {
+    if (!EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), nullptr, (const unsigned char *) key,
+                            this->iv)) {
         EVP_CIPHER_CTX_free(ctx);
         std::cout << "AES EVP_DecryptInit_ex failed." << std::endl;
         return nullptr;
@@ -293,19 +301,19 @@ unsigned char *KeyStore::encryptRSA(const unsigned char *in, int len, int &out, 
         return nullptr;
     }
     int offset = 0, reads, seeking = 0, splits;
-    int boundary = delimiter == nullptr ? 0 : strlen(delimiter);
-    unsigned char *values = (unsigned char *) OPENSSL_malloc(block_size);
+    int boundary = delimiter == nullptr ? 0 : (int)strlen(delimiter);
+    auto *values = (unsigned char *) OPENSSL_malloc(block_size);
     memset(values, 0, block_size);
     size_t sizing;
     while (offset < len) {
         reads = (reads = len - offset) > rsa_size ? rsa_size : reads;
         memset(buffer, 0, (sizing = block_size));
         if (!EVP_PKEY_encrypt(ctx, buffer, &sizing, in + offset, reads)) break;
-        int new_size = seeking > 0 ? seeking + sizing + boundary : 0;
+        int new_size = seeking > 0 ? seeking + (int)sizing + boundary : 0;
         values = new_size > 0 ? (unsigned char *) OPENSSL_realloc(values, new_size) : values;
         //append delimiter
         splits = seeking > 0 && boundary > 0 ? boundary : 0;
-        if (splits > 0) { memcpy(values + seeking, delimiter, boundary); }
+        if (splits > 0) { memcpy(values + seeking, delimiter, boundary+0); }
         seeking += splits;
         //append buffer
         memcpy(values + seeking, buffer, sizing);
@@ -340,7 +348,7 @@ unsigned char *KeyStore::decodeRSA(const unsigned char *in, int len, int &out, c
         return nullptr;
     }
     unsigned char *values = nullptr;
-    int boundary = delimiter == nullptr ? 0 : strlen(delimiter), seeking = 0;
+    int boundary = delimiter == nullptr ? 0 : (int)strlen(delimiter), seeking = 0;
     size_t sizing;
     for (int i = 0, basis = 0, offset = 0, reads = 0, skips = 0; i < len; i++, offset++) {
         if (boundary > 0 && strncmp((char *) in + i, delimiter, boundary) == 0) {
@@ -361,8 +369,8 @@ unsigned char *KeyStore::decodeRSA(const unsigned char *in, int len, int &out, c
         if (reads <= 0) continue;
         memset(buffer, 0, (sizing = block_size));
         if (!EVP_PKEY_decrypt(ctx, buffer, &sizing, in + offset, reads)) break;
-        int bsize = seeking + sizing;
-        values = (unsigned char *) (values == nullptr ? OPENSSL_malloc(bsize) : OPENSSL_realloc(values, bsize));
+        int caps = seeking + (int)sizing;
+        values = (unsigned char *) (values == nullptr ? OPENSSL_malloc(caps) : OPENSSL_realloc(values, caps));
         memcpy(values + seeking, buffer, sizing);
         seeking += (int) sizing, reads = 0, offset = 0;
     }
@@ -417,16 +425,15 @@ unsigned char *KeyStore::decodeHex(const char *in, int &len) {
     memset(values, 0, sizing);
     unsigned int value = 0;
     for (int i = 0, offset = 0; i < length; i += 2, offset++) {
-        sscanf(in + i, "%02x", &value);
+        sscanf(in + i, "%02x", &value); // NOLINT(cert-err34-c)
         *(values + offset) = value;
     }
     return values;
 }
 
-char *KeyStore::md5(const char *data, bool salts) {
+char *KeyStore::md5(const char *data) {
     if (data == nullptr) return nullptr;
-    const char *salt = this->salts();
-    size_t sizing = strlen(data) + strlen(salt);
+    size_t sizing = strlen(data);
     auto *plain = (unsigned char *) malloc(sizing);
     int len = MD5_DIGEST_LENGTH;
     unsigned char digest[len];

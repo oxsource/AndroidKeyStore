@@ -74,7 +74,7 @@ public:
     virtual unsigned char *decodeHex(const char *in, int &len);
 
     /**MD5计算*/
-    virtual char *md5(const char *data, bool salts);
+    virtual char *md5(const char *data);
 };
 
 #endif
