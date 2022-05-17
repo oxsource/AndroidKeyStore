@@ -17,27 +17,34 @@ jstring callAES(JNIEnv *env, jstring key, jstring value, jstring mode, bool encr
     env->ReleaseStringUTFChars(mode, modes);
     if (fences == nullptr) return nullptr;
     const char *values = env->GetStringUTFChars(value, nullptr);
-    int len = env->GetStringUTFLength(value);
-    const unsigned char *in = (unsigned char *) values;
+    int out = 0, len = env->GetStringUTFLength(value);
+    const unsigned char *in = encrypt ? (unsigned char *) values : ks->decodeB64(values, len);
     unsigned char *aes = encrypt ? ks->encryptAES(fences, in, len) : ks->decodeAES(fences, in, len);
     env->ReleaseStringUTFChars(value, values);
+    if (!encrypt && in != nullptr) { free((char *) in); }
     if (aes == nullptr) return env->NewStringUTF("");
-    return env->NewStringUTF((char *) aes);
+    const char *chs = encrypt ? ks->encodeB64(aes, out) : (char *) aes;
+    if (encrypt) { free(aes); }
+    const char *bytes = chs == nullptr ? "" : chs;
+    return env->NewStringUTF(bytes);
 }
 
 jstring callRSA(JNIEnv *env, jstring value, jstring delimiter, bool encrypt) {
     if (ks == nullptr || value == nullptr) return env->NewStringUTF("");
     const char *values = env->GetStringUTFChars(value, nullptr);
-    int len = env->GetStringUTFLength(value);
     const char *dls = delimiter == nullptr ? "" : env->GetStringUTFChars(delimiter, nullptr);
-    int out = 0;
-    const unsigned char *in = (unsigned char *) values;
+    int out = 0, len = env->GetStringUTFLength(value);
+    const unsigned char *in = encrypt ? (unsigned char *) values : ks->decodeB64(values, len);
     unsigned char *rsa = encrypt ? ks->encryptRSA(in, len, out, dls)
                                  : ks->decodeRSA(in, len, out, dls);
     env->ReleaseStringUTFChars(value, values);
+    if (!encrypt && in != nullptr) { free((char *) in); }
     if (delimiter != nullptr) { env->ReleaseStringUTFChars(delimiter, dls); }
-    const char *chs = rsa == nullptr ? "" : (char *) rsa;
-    return env->NewStringUTF(chs);
+    if (rsa == nullptr) return env->NewStringUTF("");
+    const char *chs = encrypt ? ks->encodeB64(rsa, out) : (char *) rsa;
+    if (encrypt) { free(rsa); }
+    const char *bytes = chs == nullptr ? "" : chs;
+    return env->NewStringUTF(bytes);
 }
 
 
@@ -50,7 +57,7 @@ Java_com_pizzk_keystore_KeyStore_init(JNIEnv *env, jobject thiz,
     if (ks == nullptr) { ks = new KeyStore(); }
     const char *paths = env->GetStringUTFChars(path, nullptr);
     const char *modes = env->GetStringUTFChars(mode, nullptr);
-    const char *secret = strcmp(modes, "release") ? "devops1" : "devops";
+    const char *secret = strcmp(modes, "release") == 0 ? "devops1" : "devops";
     int result = ks->init(paths, secret);
     env->ReleaseStringUTFChars(path, paths);
     env->ReleaseStringUTFChars(mode, modes);

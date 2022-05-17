@@ -4,6 +4,9 @@
 # Sets the minimum version of CMake required to build the native library.
 
 cmake_minimum_required(VERSION 3.10.2)
+project('lib')
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/libs/${CMAKE_ANDROID_ARCH_ABI})
+message("output path ${PROJECT_SOURCE_DIR}/libs/${CMAKE_ANDROID_ARCH_ABI}")
 
 set(LINK_LIBS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/openssl-1.1.1o)
 message("--LINK_LIBS_ROOT_DIR ${LINK_LIBS_ROOT_DIR}")

@@ -16,6 +16,8 @@ object KeyStore {
     external fun release()
 
     init {
+        System.loadLibrary("crypto")
+        System.loadLibrary("ssl")
         System.loadLibrary("keystore")
     }
 }
